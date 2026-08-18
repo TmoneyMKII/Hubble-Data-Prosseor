@@ -65,7 +65,7 @@ function HubbleScene({ target, mode }: { target: string; mode: "object" | "coord
     const canvas = canvasRef.current;
     if (!canvas) return;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#17221f");
+    scene.background = new THREE.Color("#070e15");
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
     camera.position.set(4.6, 2.9, 5.8);
     camera.lookAt(0, 0, 0);
@@ -169,10 +169,82 @@ function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "
     const keyLight = new THREE.DirectionalLight(0xffe1bd, 3);
     keyLight.position.set(4, 5, 3);
     scene.add(keyLight);
+    const skybox = new THREE.Mesh(
+      new THREE.SphereGeometry(40, 48, 32),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        uniforms: { time: { value: 0 } },
+        vertexShader: `varying vec3 skyDirection; void main() { skyDirection = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: `
+          varying vec3 skyDirection;
+          float hash(vec2 value) { return fract(sin(dot(value, vec2(127.1, 311.7))) * 43758.5453); }
+          void main() {
+            vec3 direction = normalize(skyDirection);
+            float horizon = smoothstep(-0.7, 0.8, direction.y);
+            vec3 color = mix(vec3(0.015, 0.03, 0.055), vec3(0.035, 0.075, 0.105), horizon);
+            float galacticBand = exp(-pow(abs(direction.y + direction.x * 0.12) * 5.0, 2.0));
+            color += vec3(0.025, 0.045, 0.06) * galacticBand;
+            vec2 grid = vec2(atan(direction.z, direction.x) / 6.28318 + 0.5, asin(direction.y) / 3.14159 + 0.5) * vec2(420.0, 210.0);
+            vec2 cell = floor(grid);
+            vec2 local = fract(grid) - 0.5;
+            float brightness = hash(cell);
+            float star = smoothstep(0.06, 0.0, length(local)) * step(0.994, brightness);
+            color += vec3(0.62, 0.78, 0.86) * star * (0.5 + brightness * 1.4);
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `,
+      }),
+    );
+    scene.add(skybox);
+    const textureLoader = new THREE.TextureLoader();
+    const loadColorTexture = (url: string) => {
+      const texture = textureLoader.load(url);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      return texture;
+    };
+    const system = new THREE.Group();
+    scene.add(system);
+    const sunTexture = loadColorTexture("/textures/2k_sun.jpg");
+    const sun = new THREE.Mesh(
+      new THREE.SphereGeometry(0.82, 48, 32),
+      new THREE.MeshBasicMaterial({ map: sunTexture }),
+    );
+    sun.position.set(-2.35, 0.65, -0.6);
+    system.add(sun);
+    const sunGlow = new THREE.PointLight(0xffd4a0, 4.2, 9);
+    sunGlow.position.copy(sun.position);
+    system.add(sunGlow);
+    const earthSystem = new THREE.Group();
+    earthSystem.position.set(1.15, -0.2, 0.1);
+    system.add(earthSystem);
+    const earth = new THREE.Mesh(
+      new THREE.SphereGeometry(0.62, 64, 48),
+      new THREE.MeshStandardMaterial({ map: loadColorTexture("/textures/2k_earth_daymap.jpg"), roughness: 0.76, metalness: 0.02 }),
+    );
+    earthSystem.add(earth);
+    const earthClouds = new THREE.Mesh(
+      new THREE.SphereGeometry(0.635, 64, 48),
+      new THREE.MeshStandardMaterial({ map: loadColorTexture("/textures/2k_earth_clouds.jpg"), transparent: true, opacity: 0.42, depthWrite: false }),
+    );
+    earthSystem.add(earthClouds);
+    const moonOrbit = new THREE.Group();
+    moonOrbit.rotation.z = THREE.MathUtils.degToRad(12);
+    earthSystem.add(moonOrbit);
+    const moon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.19, 40, 28),
+      new THREE.MeshStandardMaterial({ map: loadColorTexture("/textures/2k_moon.jpg"), roughness: 0.92 }),
+    );
+    moon.position.set(1.08, 0.08, 0);
+    moonOrbit.add(moon);
+    const hubbleOrbit = new THREE.Group();
+    earthSystem.add(hubbleOrbit);
+    hubbleOrbit.rotation.z = THREE.MathUtils.degToRad(24);
     const telescope = new THREE.Group();
-    scene.add(telescope);
+    telescope.position.set(0.91, 0, 0);
+    hubbleOrbit.add(telescope);
     const targetMarker = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), new THREE.MeshBasicMaterial({ color: 0xe06b45 }));
-    targetMarker.position.set(0, 4.5, 0);
+    targetMarker.position.set(0, 1.25, 0);
     telescope.add(targetMarker);
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
@@ -189,7 +261,7 @@ function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "
       const size = bounds.getSize(new THREE.Vector3());
       const center = bounds.getCenter(new THREE.Vector3());
       model.position.sub(center);
-      modelWrapper.scale.setScalar(3.3 / Math.max(size.x, size.y, size.z));
+      modelWrapper.scale.setScalar(0.46 / Math.max(size.x, size.y, size.z));
       modelWrapper.updateMatrixWorld(true);
       const normalizedBounds = new THREE.Box3().setFromObject(modelWrapper);
       const normalizedCenter = normalizedBounds.getCenter(new THREE.Vector3());
@@ -217,6 +289,11 @@ function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "
       telescope.rotation.y = THREE.MathUtils.damp(telescope.rotation.y, THREE.MathUtils.degToRad(ra), 3.2, delta);
       telescope.rotation.z = THREE.MathUtils.damp(telescope.rotation.z, THREE.MathUtils.degToRad(-dec), 3.2, delta);
       telescope.rotation.x = THREE.MathUtils.damp(telescope.rotation.x, Math.sin(performance.now() * 0.00035) * 0.035, 1.5, delta);
+      sun.rotation.y += delta * 0.035;
+      earth.rotation.y += delta * 0.22;
+      earthClouds.rotation.y += delta * 0.27;
+      moonOrbit.rotation.y += delta * 0.18;
+      hubbleOrbit.rotation.y += delta * 0.38;
       controls.update(delta);
       renderer.render(scene, camera);
     };
