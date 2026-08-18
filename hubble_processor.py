@@ -126,8 +126,8 @@ class HubbleDataProcessor:
 
         return [str(path) for path in paths if path is not None]
 
-    def process_and_display_image(self, fits_file: str, save_png: bool = True):
-        """Open a FITS image, show it, and optionally save a PNG version."""
+    def process_and_display_image(self, fits_file: str, save_png: bool = True, render_style: str = "graph"):
+        """Open a FITS image and save either a clean preview or annotated graph."""
         print(f"\nProcessing image: {fits_file}")
 
         try:
@@ -169,15 +169,19 @@ class HubbleDataProcessor:
                 else:
                     plt.imshow(image_display, cmap="gray", origin="lower")
 
-                plt.colorbar(label="Intensity")
                 target = header.get("TARGNAME", "Unknown")
                 instrument = header.get("INSTRUME", "Unknown")
                 filter_name = header.get("FILTER", "Unknown")
-                plt.title(f"Hubble Image: {target}\n{instrument} - {filter_name}")
+                if render_style == "clean":
+                    plt.axis("off")
+                else:
+                    plt.colorbar(label="Intensity")
+                    plt.title(f"Hubble Image: {target}\n{instrument} - {filter_name}")
 
                 if save_png:
-                    png_file = Path(fits_file).with_suffix(".png")
-                    plt.savefig(png_file, dpi=150, bbox_inches="tight")
+                    fits_path = Path(fits_file)
+                    png_file = fits_path.with_name(f"{fits_path.stem}_clean.png") if render_style == "clean" else fits_path.with_suffix(".png")
+                    plt.savefig(png_file, dpi=150, bbox_inches="tight", pad_inches=0 if render_style == "clean" else 0.1)
                     print(f"Saved image as: {png_file}")
 
                 plt.show()

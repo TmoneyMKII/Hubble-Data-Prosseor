@@ -15,31 +15,32 @@ def progress(stage, message, **values):
 
 mode, query, radius = sys.argv[1], sys.argv[2], float(sys.argv[3])
 selected_ids = set(json.loads(sys.argv[6]))
+render_style = sys.argv[7] if sys.argv[7] in ("clean", "graph") else "graph"
 processor = HubbleDataProcessor()
-progress("search", "Re-checking the selected observations with MAST...")
+progress("search", f"Re-checking selected observations for {render_style} output with MAST...")
 with contextlib.redirect_stdout(io.StringIO()):
     table = processor.search_by_object(query, radius) if mode == "object" else processor.search_by_coordinates(float(sys.argv[4]), float(sys.argv[5]), radius)
 if table is None:
-  progress("complete", "No observations were returned.", processed=0)
+    progress("complete", "No observations were returned.", processed=0)
     raise SystemExit
 indices = [index for index, row in enumerate(table) if str(row["obs_id"]) in selected_ids]
 if not indices:
-  progress("complete", "The selected observations are no longer available.", processed=0)
+    progress("complete", "The selected observations are no longer available.", processed=0)
     raise SystemExit
 progress("download", f"Finding science products for {len(indices)} observation(s)...", downloadPercent=10)
 with contextlib.redirect_stdout(io.StringIO()):
-  data_products = processor.download_products.__globals__["Observations"].get_product_list(table[indices])
-  science_products = processor.download_products.__globals__["Observations"].filter_products(data_products, productType="SCIENCE", extension="fits")
+    data_products = processor.download_products.__globals__["Observations"].get_product_list(table[indices])
+    science_products = processor.download_products.__globals__["Observations"].filter_products(data_products, productType="SCIENCE", extension="fits")
 progress("download", f"Downloading {len(science_products)} FITS science product(s)...", downloadPercent=20, totalFiles=len(science_products), filesFound=len(science_products))
 with contextlib.redirect_stdout(io.StringIO()):
-  manifest = processor.download_products.__globals__["Observations"].download_products(science_products, download_dir=str(processor.output_dir))
+    manifest = processor.download_products.__globals__["Observations"].download_products(science_products, download_dir=str(processor.output_dir))
 paths = [path for path in processor._collect_downloaded_files(manifest) if path.lower().endswith(".fits")]
 progress("download", f"Download complete. {len(paths)} FITS file(s) are ready.", downloadPercent=100, totalFiles=len(paths), filesFound=len(paths))
 processed = []
 for index, file_path in enumerate(paths, 1):
-  progress("processing", f"Rendering {index} of {len(paths)}: {file_path.rsplit("/", 1)[-1]}", processingPercent=round((index - 1) / len(paths) * 100), filesProcessed=index - 1, totalFiles=len(paths))
+    progress("processing", f"Rendering {index} of {len(paths)}: {file_path.rsplit("/", 1)[-1]}", processingPercent=round((index - 1) / len(paths) * 100), filesProcessed=index - 1, totalFiles=len(paths))
   with contextlib.redirect_stdout(io.StringIO()):
-    processor.process_and_display_image(file_path, save_png=True)
+        processor.process_and_display_image(file_path, save_png=True, render_style=render_style)
   processed.append(file_path.rsplit(".", 1)[0] + ".png")
   progress("processing", f"Created PNG preview {index} of {len(paths)}.", processingPercent=round(index / len(paths) * 100), filesProcessed=index, totalFiles=len(paths))
 progress("complete", f"Finished {len(processed)} PNG preview(s).", processingPercent=100, filesProcessed=len(processed), totalFiles=len(paths), processed=len(processed))
@@ -53,7 +54,8 @@ export async function POST(request: NextRequest) {
     const radius = Number(body.radius);
     if (!Number.isFinite(radius) || radius <= 0) return NextResponse.json({ error: "Search radius must be positive" }, { status: 400 });
     const job = createJob();
-    const args = ["-c", processScript, body.mode === "object" ? "object" : "coordinates", String(body.query ?? ""), String(radius), String(body.ra ?? ""), String(body.dec ?? ""), JSON.stringify(observationIds)];
+    const renderStyle = body.renderStyle === "clean" ? "clean" : "graph";
+    const args = ["-c", processScript, body.mode === "object" ? "object" : "coordinates", String(body.query ?? ""), String(radius), String(body.ra ?? ""), String(body.dec ?? ""), JSON.stringify(observationIds), renderStyle];
     const child = spawn("python", args, { cwd: projectRoot });
     let output = "";
     updateJob(job.id, { state: "running", message: "Starting Python worker..." });

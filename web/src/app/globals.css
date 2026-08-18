@@ -34,6 +34,12 @@ footer { display: flex; justify-content: space-between; padding: 20px 6vw; color
 .result-toolbar .process-button { background: var(--accent); color: white; padding: 10px 12px; font-weight: 700; }
 .result-toolbar .process-button:disabled { opacity: .45; cursor: not-allowed; }
 .process-button span { margin-left: 12px; font-size: 14px; }
+.render-options { display: flex; align-items: stretch; gap: 7px; margin: 0 0 16px; }
+.render-options > span { align-self: center; margin-right: auto; color: #9aa59d; font: 9px Arial, sans-serif; letter-spacing: 1px; }
+.render-options button { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 8px 10px; text-align: left; font: 10px Arial, sans-serif; }
+.render-options button.selected { border-color: var(--accent); background: #fff8f3; color: var(--ink); }
+.render-options button:disabled { cursor: not-allowed; opacity: .6; }
+.render-options small { display: block; margin-top: 3px; color: #9aa59d; font-size: 8px; }
 .progress-panel { margin: 0 0 18px; padding: 16px; background: #edf2eb; border: 1px solid #d7e1d6; }
 .progress-message { display: flex; align-items: center; gap: 9px; margin-bottom: 17px; color: var(--ink); font: 11px Arial, sans-serif; }
 .progress-spinner { width: 10px; height: 10px; border: 2px solid #c2d2c2; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
