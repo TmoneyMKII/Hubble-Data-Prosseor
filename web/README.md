@@ -14,7 +14,21 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result. If that port is busy, Next.js will select the next available port.
+
+## Hubble workflow
+
+1. Search for an object name such as `M51`, or switch to coordinates and enter `RA, DEC` in degrees.
+2. Select one or more returned observations.
+3. Choose **Download & process**. The local Python processor downloads the selected FITS science products into `../hubble_images` and creates PNG previews beside them.
+4. Open **Image library** in the sidebar to view the generated previews. Use **FITS archive** to inspect the raw files.
+5. Choose **Generate post** on any PNG to create a copyable social media caption grounded in its FITS metadata and the Python processing pipeline.
+
+The web UI requires the Python dependencies from the project root:
+
+```bash
+pip install -r ../requirements.txt
+```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
