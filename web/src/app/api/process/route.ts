@@ -41,8 +41,9 @@ for index, file_path in enumerate(paths, 1):
     progress("processing", f"Rendering {index} of {len(paths)}: {file_path.rsplit("/", 1)[-1]}", processingPercent=round((index - 1) / len(paths) * 100), filesProcessed=index - 1, totalFiles=len(paths))
   with contextlib.redirect_stdout(io.StringIO()):
         processor.process_and_display_image(file_path, save_png=True, render_style=render_style)
-  processed.append(file_path.rsplit(".", 1)[0] + ".png")
-  progress("processing", f"Created PNG preview {index} of {len(paths)}.", processingPercent=round(index / len(paths) * 100), filesProcessed=index, totalFiles=len(paths))
+  output_suffix = "_clean.png" if render_style == "clean" else ".png"
+  processed.append(file_path.rsplit(".", 1)[0].removesuffix("_clean") + output_suffix)
+  progress("processing", f"Created {render_style} preview {index} of {len(paths)}.", processingPercent=round(index / len(paths) * 100), filesProcessed=index, totalFiles=len(paths))
 progress("complete", f"Finished {len(processed)} PNG preview(s).", processingPercent=100, filesProcessed=len(processed), totalFiles=len(paths), processed=len(processed))
 `;
 
