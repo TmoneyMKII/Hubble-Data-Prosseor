@@ -240,11 +240,18 @@ function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "
     const hubbleOrbit = new THREE.Group();
     earthSystem.add(hubbleOrbit);
     hubbleOrbit.rotation.z = THREE.MathUtils.degToRad(24);
+    const orbitRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.34, 1.355, 96),
+      new THREE.MeshBasicMaterial({ color: 0x789a9a, transparent: true, opacity: 0.32, side: THREE.DoubleSide }),
+    );
+    orbitRing.rotation.x = Math.PI / 2;
+    earthSystem.add(orbitRing);
     const telescope = new THREE.Group();
-    telescope.position.set(0.91, 0, 0);
+    telescope.position.set(1.35, 0, 0);
     hubbleOrbit.add(telescope);
     const targetMarker = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), new THREE.MeshBasicMaterial({ color: 0xe06b45 }));
-    targetMarker.position.set(0, 1.25, 0);
+    targetMarker.position.set(0, 0.95, 0);
+    targetMarker.visible = Boolean(target.trim());
     telescope.add(targetMarker);
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
@@ -261,7 +268,7 @@ function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "
       const size = bounds.getSize(new THREE.Vector3());
       const center = bounds.getCenter(new THREE.Vector3());
       model.position.sub(center);
-      modelWrapper.scale.setScalar(0.46 / Math.max(size.x, size.y, size.z));
+      modelWrapper.scale.setScalar(0.72 / Math.max(size.x, size.y, size.z));
       modelWrapper.updateMatrixWorld(true);
       const normalizedBounds = new THREE.Box3().setFromObject(modelWrapper);
       const normalizedCenter = normalizedBounds.getCenter(new THREE.Vector3());
@@ -282,6 +289,7 @@ function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "
       lastTime = now;
       const activeTarget = targetRef.current.target;
       const activeMode = targetRef.current.mode;
+      targetMarker.visible = Boolean(activeTarget.trim());
       const values = activeTarget.split(",").map((value) => Number(value.trim()));
       const seed = [...activeTarget].reduce((sum, character) => sum + character.charCodeAt(0), 0);
       const ra = activeMode === "coordinates" && Number.isFinite(values[0]) ? values[0] : seed % 360;
