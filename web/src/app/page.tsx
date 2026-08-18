@@ -2,6 +2,9 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 type LibraryFile = {
   name: string;
@@ -130,6 +133,98 @@ function HubbleScene({ target, mode }: { target: string; mode: "object" | "coord
   }, [mode, target]);
 
   return <div className="hubble-scene"><canvas ref={canvasRef} /><div className="scene-readout"><span>POINTING VECTOR</span><strong>{target.trim() || "Awaiting target"}</strong><small>{mode === "coordinates" ? "RA / DEC reference" : "Resolved target reference"}</small></div><div className="scene-crosshair">+</div></div>;
+}
+
+function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "coordinates" }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const targetRef = useRef({ target, mode });
+  targetRef.current = { target, mode };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#17221f");
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    camera.position.set(4.6, 2.9, 5.8);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.enablePan = false;
+    controls.minDistance = 3.5;
+    controls.maxDistance = 9;
+    controls.target.set(0, 0, 0);
+    camera.lookAt(0, 0, 0);
+    const resize = () => {
+      const { width, height } = canvas.getBoundingClientRect();
+      renderer.setSize(width, height, false);
+      camera.aspect = width / Math.max(height, 1);
+      camera.updateProjectionMatrix();
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    scene.add(new THREE.HemisphereLight(0xc5ddd3, 0x16201e, 2.2));
+    const keyLight = new THREE.DirectionalLight(0xffe1bd, 3);
+    keyLight.position.set(4, 5, 3);
+    scene.add(keyLight);
+    const telescope = new THREE.Group();
+    scene.add(telescope);
+    const targetMarker = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), new THREE.MeshBasicMaterial({ color: 0xe06b45 }));
+    targetMarker.position.set(2.5, 1.25, -2.4);
+    scene.add(targetMarker);
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+    let disposed = false;
+    loader.load("/3d/HST_3D.glb", (gltf) => {
+      if (disposed) return;
+      const model = gltf.scene;
+      const modelWrapper = new THREE.Group();
+      modelWrapper.add(model);
+      modelWrapper.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(modelWrapper);
+      const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
+      model.position.sub(center);
+      modelWrapper.scale.setScalar(3.3 / Math.max(size.x, size.y, size.z));
+      modelWrapper.updateMatrixWorld(true);
+      const normalizedBounds = new THREE.Box3().setFromObject(modelWrapper);
+      const normalizedCenter = normalizedBounds.getCenter(new THREE.Vector3());
+      modelWrapper.position.sub(normalizedCenter);
+      model.traverse((object) => {
+        if (object instanceof THREE.Mesh) { object.castShadow = true; object.receiveShadow = true; }
+      });
+      telescope.add(modelWrapper);
+      controls.target.set(0, 0, 0);
+      camera.lookAt(0, 0, 0);
+    });
+    let lastTime = performance.now();
+    let frameId = 0;
+    const animate = () => {
+      frameId = requestAnimationFrame(animate);
+      const now = performance.now();
+      const delta = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+      const activeTarget = targetRef.current.target;
+      const activeMode = targetRef.current.mode;
+      const values = activeTarget.split(",").map((value) => Number(value.trim()));
+      const seed = [...activeTarget].reduce((sum, character) => sum + character.charCodeAt(0), 0);
+      const ra = activeMode === "coordinates" && Number.isFinite(values[0]) ? values[0] : seed % 360;
+      const dec = activeMode === "coordinates" && Number.isFinite(values[1]) ? values[1] : ((seed % 120) - 60);
+      telescope.rotation.y = THREE.MathUtils.damp(telescope.rotation.y, THREE.MathUtils.degToRad(ra), 3.2, delta);
+      telescope.rotation.z = THREE.MathUtils.damp(telescope.rotation.z, THREE.MathUtils.degToRad(-dec), 3.2, delta);
+      telescope.rotation.x = THREE.MathUtils.damp(telescope.rotation.x, Math.sin(performance.now() * 0.00035) * 0.035, 1.5, delta);
+      controls.update(delta);
+      renderer.render(scene, camera);
+    };
+    animate();
+    return () => { disposed = true; cancelAnimationFrame(frameId); window.removeEventListener("resize", resize); controls.dispose(); dracoLoader.dispose(); renderer.dispose(); scene.traverse((object) => { if (object instanceof THREE.Mesh) { object.geometry.dispose(); if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose()); else object.material.dispose(); } }); };
+  }, []);
+
+  return <div className="hubble-scene"><canvas ref={canvasRef} /><div className="scene-readout"><span>POINTING VECTOR</span><strong>{target.trim() || "Awaiting target"}</strong><small>{mode === "coordinates" ? "RA / DEC reference" : "Resolved target reference"}</small></div><div className="scene-crosshair">+</div><div className="scene-hint">DRAG TO ORBIT</div></div>;
 }
 
 export default function Home() {
@@ -328,7 +423,7 @@ export default function Home() {
 
           <section className="library-panel">
             <div className="section-heading"><div><div className="panel-kicker">{activeView === "fits" ? "FITS ARCHIVE" : activeView === "images" ? "IMAGE LIBRARY" : "LOCAL LIBRARY"}</div><h3>{activeView === "fits" ? "Raw observations" : "Recent captures"}</h3></div><span className="file-count">{activeView === "fits" ? fitsFiles.length : activeView === "images" ? imageFiles.length : files.length} FILES</span></div>
-            {activeView === "observatory" && <><HubbleScene target={query} mode={searchMode} />{processProgress && processing && <div className="progress-panel observatory-progress"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>DOWNLOADS</span><strong>{processProgress.downloadPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} FITS product(s) found` : `Estimating products for ${selectedObservations.length} observation(s)...`}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}</>}
+            {activeView === "observatory" && <><HubbleModelScene target={query} mode={searchMode} />{processProgress && processing && <div className="progress-panel observatory-progress"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>DOWNLOADS</span><strong>{processProgress.downloadPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} FITS product(s) found` : `Estimating products for ${selectedObservations.length} observation(s)...`}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}</>}
             {processProgress && processing && activeView === "images" && <div className="progress-panel progress-panel-shared"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>{processProgress.stage === "processing" && processProgress.downloadPercent === 100 ? "LOCAL FITS" : "DOWNLOADS"}</span><strong>{processProgress.stage === "processing" && processProgress.downloadPercent === 100 ? "READY" : `${processProgress.downloadPercent}%`}</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} file(s) found` : "Estimating products..."}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}
             {activeView === "observatory" && observations.length > 0 && <><div className="result-toolbar"><span>{selectedObservations.length} selected</span><button onClick={() => setSelectedObservations(selectedObservations.length === observations.length ? [] : observations.map((observation) => observation.obs_id))}>{selectedObservations.length === observations.length ? "Clear selection" : "Select all"}</button><button className="process-button" disabled={!selectedObservations.length || processing} onClick={processSelected}>{processing ? "Processing..." : "Download & process"} <span>↗</span></button></div><div className="render-options"><span>OUTPUT STYLE</span><button className={renderStyle === "clean" ? "selected" : ""} onClick={() => setRenderStyle("clean")} disabled={processing}>Clean image <small>No graph</small></button><button className={renderStyle === "graph" ? "selected" : ""} onClick={() => setRenderStyle("graph")} disabled={processing}>Scientific graph <small>Axes + metadata</small></button></div>{processProgress && processing && <div className="progress-panel"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>DOWNLOADS</span><strong>{processProgress.downloadPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} FITS product(s) found` : "Finding science products..."}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}<div className="observation-list">{observations.map((observation) => <label className={`observation-row ${selectedObservations.includes(observation.obs_id) ? "checked" : ""}`} key={observation.obs_id}><input type="checkbox" checked={selectedObservations.includes(observation.obs_id)} onChange={() => toggleObservation(observation.obs_id)} /><strong>{observation.obs_id}</strong><span>{observation.target_name} · {observation.instrument_name}</span><small>{observation.filters || "Filter unavailable"} · {observation.t_exptime || "Exposure unavailable"} s</small></label>)}</div></>}
             {activeView === "images" && (imageFiles.length ? <div className="image-grid">{imageFiles.map((file) => <div className="image-card" key={file.path}><button className="image-open" onClick={() => setSelectedFile(file)}><div className="image-preview"><img src={`/api/file?path=${encodeURIComponent(file.path)}`} alt={file.name} /><span>VIEW ↗</span></div><div className="image-meta"><strong>{file.name}</strong><small>{formatBytes(file.size)} <i /> PNG</small></div></button><div className="image-actions"><button className="caption-button" onClick={() => generateCaption(file)} disabled={captionLoading}>✎ {captionLoading ? "Writing..." : "Generate post"}</button><button className="local-file-button" onClick={() => openLocalFile(file)}>⌂ Open local file</button></div></div>)}</div> : <div className="empty-state"><div className="empty-icon">⊹</div><h4>Your image library is quiet.</h4><p>Processed PNG previews will appear here after you run a download and image processing pass from the Python tool.</p><div className="path-chip">/hubble_images/**/*.png</div></div>)}
