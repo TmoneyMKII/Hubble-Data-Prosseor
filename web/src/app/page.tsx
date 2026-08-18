@@ -172,8 +172,8 @@ function HubbleModelScene({ target, mode }: { target: string; mode: "object" | "
     const telescope = new THREE.Group();
     scene.add(telescope);
     const targetMarker = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), new THREE.MeshBasicMaterial({ color: 0xe06b45 }));
-    targetMarker.position.set(2.5, 1.25, -2.4);
-    scene.add(targetMarker);
+    targetMarker.position.set(0, 4.5, 0);
+    telescope.add(targetMarker);
     const dracoLoader = new DRACOLoader();
     dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
     const loader = new GLTFLoader();
