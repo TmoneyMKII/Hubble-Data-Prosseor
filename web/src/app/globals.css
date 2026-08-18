@@ -34,6 +34,16 @@ footer { display: flex; justify-content: space-between; padding: 20px 6vw; color
 .result-toolbar .process-button { background: var(--accent); color: white; padding: 10px 12px; font-weight: 700; }
 .result-toolbar .process-button:disabled { opacity: .45; cursor: not-allowed; }
 .process-button span { margin-left: 12px; font-size: 14px; }
+.progress-panel { margin: 0 0 18px; padding: 16px; background: #edf2eb; border: 1px solid #d7e1d6; }
+.progress-message { display: flex; align-items: center; gap: 9px; margin-bottom: 17px; color: var(--ink); font: 11px Arial, sans-serif; }
+.progress-spinner { width: 10px; height: 10px; border: 2px solid #c2d2c2; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+.progress-line { margin-top: 13px; }
+.progress-line > div:first-child { display: flex; justify-content: space-between; color: #87958b; font: 9px Arial, sans-serif; letter-spacing: 1px; }
+.progress-line strong { color: var(--accent); font-size: 10px; letter-spacing: 0; }
+.progress-track { height: 5px; margin-top: 7px; overflow: hidden; background: #d8e2d7; }
+.progress-track i { display: block; height: 100%; background: var(--accent); transition: width .35s ease; }
+.progress-line small { display: block; margin-top: 6px; color: #9aa59d; font: 10px Arial, sans-serif; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .observation-row { display: grid; grid-template-columns: 18px 1.2fr 1.5fr 1fr; align-items: center; gap: 10px; padding: 13px 0; border-bottom: 1px solid var(--line); font: 11px Arial, sans-serif; cursor: pointer; }
 .observation-row input { accent-color: var(--accent); }
 .observation-row span { color: var(--muted); }

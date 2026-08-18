@@ -34,6 +34,19 @@ type Caption = {
   filter: string;
 };
 
+type ProcessProgress = {
+  state: "queued" | "running" | "complete" | "error";
+  stage: "search" | "download" | "processing" | "complete" | "error";
+  message: string;
+  downloadPercent: number;
+  processingPercent: number;
+  filesFound: number;
+  filesProcessed: number;
+  totalFiles: number;
+  processed?: number;
+  error?: string;
+};
+
 const formatBytes = (bytes: number) => {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -53,6 +66,7 @@ export default function Home() {
   const [selectedObservations, setSelectedObservations] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [processProgress, setProcessProgress] = useState<ProcessProgress | null>(null);
   const [caption, setCaption] = useState<Caption | null>(null);
   const [captionLoading, setCaptionLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -93,18 +107,30 @@ export default function Home() {
   const processSelected = async () => {
     if (!selectedObservations.length) return;
     setProcessing(true);
-    setStatus("Downloading FITS products and creating PNG previews...");
+    setStatus("Starting processing job...");
     const [ra, dec] = query.split(",").map((value) => Number(value.trim()));
     const request: SearchRequest = { mode: searchMode, query: query.trim(), radius: Number(searchRadius), ra, dec };
     try {
       const response = await fetch("/api/process", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...request, observationIds: selectedObservations }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Processing failed");
+      let finished = false;
+      let finalProgress: ProcessProgress | null = null;
+      while (!finished) {
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        const progressResponse = await fetch(`/api/process/${data.jobId}`);
+        const progress: ProcessProgress = await progressResponse.json();
+        finalProgress = progress;
+        setProcessProgress(progress);
+        setStatus(progress.message);
+        if (progress.state === "error") throw new Error(progress.error ?? progress.message);
+        finished = progress.state === "complete";
+      }
       const libraryResponse = await fetch("/api/library");
       const libraryData = await libraryResponse.json();
       setFiles(libraryData.files ?? []);
       setActiveView("images");
-      setStatus(`${data.processed} PNG preview${data.processed === 1 ? "" : "s"} ready`);
+      setStatus(`${finalProgress?.processed ?? "New"} PNG previews ready`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Processing failed");
     } finally {
@@ -172,7 +198,7 @@ export default function Home() {
 
           <section className="library-panel">
             <div className="section-heading"><div><div className="panel-kicker">{activeView === "fits" ? "FITS ARCHIVE" : activeView === "images" ? "IMAGE LIBRARY" : "LOCAL LIBRARY"}</div><h3>{activeView === "fits" ? "Raw observations" : "Recent captures"}</h3></div><span className="file-count">{activeView === "fits" ? fitsFiles.length : activeView === "images" ? imageFiles.length : files.length} FILES</span></div>
-            {activeView === "observatory" && observations.length > 0 && <><div className="result-toolbar"><span>{selectedObservations.length} selected</span><button onClick={() => setSelectedObservations(selectedObservations.length === observations.length ? [] : observations.map((observation) => observation.obs_id))}>{selectedObservations.length === observations.length ? "Clear selection" : "Select all"}</button><button className="process-button" disabled={!selectedObservations.length || processing} onClick={processSelected}>{processing ? "Processing..." : "Download & process"} <span>↗</span></button></div><div className="observation-list">{observations.map((observation) => <label className={`observation-row ${selectedObservations.includes(observation.obs_id) ? "checked" : ""}`} key={observation.obs_id}><input type="checkbox" checked={selectedObservations.includes(observation.obs_id)} onChange={() => toggleObservation(observation.obs_id)} /><strong>{observation.obs_id}</strong><span>{observation.target_name} · {observation.instrument_name}</span><small>{observation.filters || "Filter unavailable"} · {observation.t_exptime || "Exposure unavailable"} s</small></label>)}</div></>}
+            {activeView === "observatory" && observations.length > 0 && <><div className="result-toolbar"><span>{selectedObservations.length} selected</span><button onClick={() => setSelectedObservations(selectedObservations.length === observations.length ? [] : observations.map((observation) => observation.obs_id))}>{selectedObservations.length === observations.length ? "Clear selection" : "Select all"}</button><button className="process-button" disabled={!selectedObservations.length || processing} onClick={processSelected}>{processing ? "Processing..." : "Download & process"} <span>↗</span></button></div>{processProgress && processing && <div className="progress-panel"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>DOWNLOADS</span><strong>{processProgress.downloadPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} FITS product(s) found` : "Finding science products..."}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}<div className="observation-list">{observations.map((observation) => <label className={`observation-row ${selectedObservations.includes(observation.obs_id) ? "checked" : ""}`} key={observation.obs_id}><input type="checkbox" checked={selectedObservations.includes(observation.obs_id)} onChange={() => toggleObservation(observation.obs_id)} /><strong>{observation.obs_id}</strong><span>{observation.target_name} · {observation.instrument_name}</span><small>{observation.filters || "Filter unavailable"} · {observation.t_exptime || "Exposure unavailable"} s</small></label>)}</div></>}
             {activeView !== "fits" && (imageFiles.length ? <div className="image-grid">{imageFiles.map((file) => <div className="image-card" key={file.path}><button className="image-open" onClick={() => setSelectedFile(file)}><div className="image-preview"><img src={`/api/file?path=${encodeURIComponent(file.path)}`} alt={file.name} /><span>VIEW ↗</span></div><div className="image-meta"><strong>{file.name}</strong><small>{formatBytes(file.size)} <i /> PNG</small></div></button><button className="caption-button" onClick={() => generateCaption(file)} disabled={captionLoading}>✎ {captionLoading ? "Writing..." : "Generate post"}</button></div>)}</div> : <div className="empty-state"><div className="empty-icon">⊹</div><h4>Your image library is quiet.</h4><p>Processed PNG previews will appear here after you run a download and image processing pass from the Python tool.</p><div className="path-chip">/hubble_images/**/*.png</div></div>)}
             {activeView === "fits" && <div className="fits-list">{fitsFiles.map((file) => <div key={file.path}><span>▧</span><strong>{file.name}</strong><small>{formatBytes(file.size)}</small></div>)}</div>}
             {activeView !== "fits" && <div className="archive-row" onClick={() => setActiveView("fits")}><div><span className="archive-icon">▧</span><div><strong>Raw FITS archive</strong><small>{fitsFiles.length ? `${fitsFiles.length} files available locally` : "No FITS products indexed yet"}</small></div></div><span className="arrow">→</span></div>}
