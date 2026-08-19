@@ -10,6 +10,7 @@ A Python tool to search, download, and process Hubble Space Telescope images fro
 - **Download Data**: Download FITS files from selected observations
 - **Image Processing**: Automatically process and display downloaded images
 - **Export Images**: Save processed images as PNG files
+- **RGB Color Composites**: Combine three matching FITS filter images into a social-media-ready false-color PNG
 
 ## Installation
 
@@ -33,6 +34,13 @@ The program will guide you through:
 2. **View Results**: Browse available observations
 3. **Select Data**: Choose which observations to download
 4. **Process Images**: Automatically display and save images
+5. **Create a Color Composite**: Choose local FITS files for the red, green, and blue channels
+
+### Creating Color Images
+
+Hubble FITS products usually contain intensity data from one filter, rather than a ready-made color photograph. Select option `3` and assign three images with matching pixel dimensions to red, green, and blue. The processor applies an arcsinh stretch to each filter independently and exports an RGB PNG.
+
+For an artistic, false-color M51 composite from the supplied files, you can use the `F814W` image as red, the same image as green, and `F435W` as blue. For scientifically meaningful results, assign filters according to the wavelengths or emission lines you want to emphasize. The printed output records the chosen filter for each RGB channel.
 
 ### Example Searches
 

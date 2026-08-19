@@ -189,6 +189,71 @@ class HubbleDataProcessor:
         except Exception as exc:  # pragma: no cover - user-facing error path
             print(f"Error processing image: {exc}")
 
+    @staticmethod
+    def _load_image_data(fits_file: str) -> tuple[np.ndarray, fits.Header]:
+        """Load the first image plane and header from a FITS product."""
+        try:
+            with fits.open(fits_file) as hdul:
+                primary_header = hdul[0].header.copy()
+                for hdu in hdul:
+                    if hdu.data is not None and hdu.data.ndim >= 2:
+                        image_data = np.asarray(hdu.data, dtype=float)
+                        if image_data.ndim == 3:
+                            image_data = image_data[image_data.shape[0] // 2]
+                        header = primary_header.copy()
+                        header.update(hdu.header)
+                        return image_data, header
+        except (OSError, TypeError) as exc:
+            raise ValueError(f"Cannot read FITS image '{fits_file}': {exc}") from exc
+
+        raise ValueError("No image data found in FITS file")
+
+    @staticmethod
+    def _normalize_color_channel(image_data: np.ndarray) -> np.ndarray:
+        """Stretch a FITS intensity plane into a display-ready color channel."""
+        values = np.nan_to_num(image_data, nan=0.0, posinf=0.0, neginf=0.0)
+        positive_pixels = values[values > 0]
+        if positive_pixels.size == 0:
+            return np.zeros(values.shape, dtype=float)
+
+        low, high = np.percentile(positive_pixels, (1, 99.8))
+        if high <= low:
+            return np.zeros(values.shape, dtype=float)
+
+        normalized = np.clip((values - low) / (high - low), 0, 1)
+        return np.arcsinh(10 * normalized) / np.arcsinh(10)
+
+    def create_color_composite(
+        self,
+        red_fits: str,
+        green_fits: str,
+        blue_fits: str,
+        output_file: str | os.PathLike[str] | None = None,
+    ) -> Path:
+        """Create a false-color PNG by assigning three FITS bands to RGB channels."""
+        channels = {
+            "red": self._load_image_data(red_fits),
+            "green": self._load_image_data(green_fits),
+            "blue": self._load_image_data(blue_fits),
+        }
+        shapes = {image_data.shape for image_data, _ in channels.values()}
+        if len(shapes) != 1:
+            raise ValueError("RGB FITS images must have identical pixel dimensions")
+
+        rgb_image = np.dstack(
+            [self._normalize_color_channel(channels[color][0]) for color in ("red", "green", "blue")]
+        )
+        if output_file is None:
+            output_file = Path(red_fits).with_name(f"{Path(red_fits).stem}_rgb.png")
+        output_path = Path(output_file)
+
+        plt.imsave(output_path, rgb_image, origin="lower")
+        print(f"Saved RGB color composite as: {output_path}")
+        for color, (_, header) in channels.items():
+            filter_name = header.get("FILTER", header.get("FILTER2", "Unknown"))
+            print(f"  {color.title()}: {filter_name}")
+        return output_path
+
 
 def prompt_float(label: str, default: float | None = None) -> float:
     """Prompt for a float value, with an optional default."""
@@ -227,9 +292,10 @@ def main():
         print("\nOptions:")
         print("1. Search by coordinates (RA, Dec)")
         print("2. Search by object name")
-        print("3. Exit")
+        print("3. Create an RGB color composite from local FITS files")
+        print("4. Exit")
 
-        choice = input("\nEnter your choice (1-3): ").strip()
+        choice = input("\nEnter your choice (1-4): ").strip()
 
         if choice == "1":
             ra = prompt_float("Enter Right Ascension (degrees): ")
@@ -245,6 +311,17 @@ def main():
             radius = prompt_float("Enter search radius (degrees, default=0.02): ", default=DEFAULT_SEARCH_RADIUS)
             obs_table = processor.search_by_object(object_name, radius)
         elif choice == "3":
+            print("Assign three matching FITS images to red, green, and blue channels.")
+            red_fits = input("Red-channel FITS file: ").strip()
+            green_fits = input("Green-channel FITS file: ").strip()
+            blue_fits = input("Blue-channel FITS file: ").strip()
+            output_file = input("Output PNG path (leave blank for automatic name): ").strip()
+            try:
+                processor.create_color_composite(red_fits, green_fits, blue_fits, output_file or None)
+            except (OSError, ValueError) as exc:
+                print(f"Unable to create color composite: {exc}")
+            continue
+        elif choice == "4":
             print("Goodbye!")
             break
         else:
