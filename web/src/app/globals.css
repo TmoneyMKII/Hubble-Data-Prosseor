@@ -59,6 +59,10 @@ footer { display: flex; justify-content: space-between; padding: 20px 6vw; color
 .channel-picker select { min-width: 0; border: 1px solid var(--line); border-radius: 0; background: var(--panel); color: var(--ink); padding: 8px; font: 10px Arial, sans-serif; }
 .compose-button { margin-top: 14px; border: 0; background: #254c4a; color: white; padding: 10px 13px; font: 700 10px Arial, sans-serif; letter-spacing: .4px; }
 .compose-button:disabled { opacity: .5; cursor: not-allowed; }
+.composer-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.composer-actions .compose-button { margin-top: 0; }
+.suggest-button { border: 1px solid #254c4a; background: transparent; color: #254c4a; padding: 10px 13px; font: 700 10px Arial, sans-serif; letter-spacing: .4px; }
+.suggest-button:disabled { opacity: .5; cursor: not-allowed; }
 .result-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: #9aa59d; font: 10px Arial, sans-serif; }
 .result-toolbar > span { margin-right: auto; }
 .result-toolbar button { border: 0; background: transparent; color: var(--muted); font: 10px Arial, sans-serif; padding: 8px 0; }
