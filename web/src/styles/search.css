@@ -1,0 +1,96 @@
+/* Search panel: mode switch, form and status line. */
+
+.search__title {
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: clamp(2.25rem, 3.6vw, 3.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+
+.search__title em { color: var(--accent); font-style: italic; }
+
+.search__copy {
+  max-width: 30ch;
+  margin-bottom: var(--space-6);
+  color: var(--ink-muted);
+}
+
+.mode-switch {
+  display: flex;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.mode-switch button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 0 var(--space-3);
+  background: transparent;
+  color: var(--ink-subtle);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.mode-switch button:hover { color: var(--ink); }
+
+.mode-switch button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.search__form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.field > span {
+  color: var(--ink-subtle);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.field input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line-strong);
+  padding: var(--space-2) 0;
+  background: transparent;
+  font-size: var(--text-md);
+  transition: border-color var(--transition);
+}
+
+.field input::placeholder { color: var(--ink-subtle); }
+.field input:focus { outline: none; border-color: var(--accent); box-shadow: none; }
+
+.search__submit { justify-self: start; }
+.search__submit span:last-child { font-size: 1rem; }
+
+.search__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
+.search__status[data-busy="true"] .dot {
+  animation: pulse 1.4s ease-in-out infinite;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}

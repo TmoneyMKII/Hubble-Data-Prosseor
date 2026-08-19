@@ -1,0 +1,67 @@
+/* The Three.js observatory viewport and its overlaid readouts. */
+
+.scene {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--scene-line);
+  border-radius: var(--radius-md);
+  background: var(--scene-bg);
+}
+
+.scene canvas {
+  display: block;
+  width: 100%;
+  height: clamp(280px, 38vh, 420px);
+}
+
+.scene__readout {
+  position: absolute;
+  left: var(--space-4);
+  bottom: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+  color: var(--scene-ink);
+  pointer-events: none;
+}
+
+.scene__readout .kicker { color: var(--accent); }
+
+.scene__readout strong {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 400;
+}
+
+.scene__readout small { color: var(--scene-ink-muted); font-size: var(--text-xs); }
+
+.scene__crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  color: var(--accent);
+  font-size: 1.35rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.scene__hint {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  color: var(--scene-ink-muted);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.scene--loading {
+  display: grid;
+  place-items: center;
+  height: clamp(280px, 38vh, 420px);
+}
+
+.scene--loading .scene__hint {
+  position: static;
+}
