@@ -48,6 +48,17 @@ footer { display: flex; justify-content: space-between; padding: 20px 6vw; color
 .fits-row strong { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fits-row small { margin-left: auto; color: #9aa59d; }
 .fits-row.checked { background: #f0f4ed; }
+.color-composer { margin: 0 0 20px; padding: 16px; border: 1px solid #d7e1d6; background: #edf2eb; }
+.color-composer h4 { margin: 8px 0 6px; font-size: 18px; font-weight: 400; }
+.color-composer p { max-width: 520px; margin: 0; color: var(--muted); font: 11px/1.5 Arial, sans-serif; }
+.channel-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-top: 15px; }
+.channel-picker label { display: grid; gap: 5px; color: var(--muted); font: 9px Arial, sans-serif; text-transform: uppercase; }
+.channel-picker label:nth-child(1) span { color: #b64b42; }
+.channel-picker label:nth-child(2) span { color: #57855d; }
+.channel-picker label:nth-child(3) span { color: #3e6fa1; }
+.channel-picker select { min-width: 0; border: 1px solid var(--line); border-radius: 0; background: var(--panel); color: var(--ink); padding: 8px; font: 10px Arial, sans-serif; }
+.compose-button { margin-top: 14px; border: 0; background: #254c4a; color: white; padding: 10px 13px; font: 700 10px Arial, sans-serif; letter-spacing: .4px; }
+.compose-button:disabled { opacity: .5; cursor: not-allowed; }
 .result-toolbar { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: #9aa59d; font: 10px Arial, sans-serif; }
 .result-toolbar > span { margin-right: auto; }
 .result-toolbar button { border: 0; background: transparent; color: var(--muted); font: 10px Arial, sans-serif; padding: 8px 0; }

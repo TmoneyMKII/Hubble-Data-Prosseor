@@ -5,6 +5,14 @@ import { NextResponse } from "next/server";
 const libraryRoot = path.resolve(process.cwd(), "..", "hubble_images");
 const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
+function describeFilter(fileName: string) {
+  const match = fileName.match(/f(\d{3,4})[a-z]/i);
+  if (!match) return { filter: "Unknown filter", colorHint: "Choose manually" };
+  const wavelength = Number(match[1]);
+  const colorHint = wavelength >= 700 ? "Red channel" : wavelength >= 500 ? "Green channel" : "Blue channel";
+  return { filter: `F${match[1].toUpperCase()}`, colorHint };
+}
+
 async function collectFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(entries.map((entry) => {
@@ -21,7 +29,8 @@ export async function GET() {
       .filter((filePath) => [".fits", ...imageExtensions].includes(path.extname(filePath).toLowerCase()))
       .map(async (filePath) => {
         const details = await stat(filePath);
-        return { name: path.basename(filePath), path: path.relative(libraryRoot, filePath).replaceAll(path.sep, "/"), type: imageExtensions.has(path.extname(filePath).toLowerCase()) ? "image" : "fits", size: details.size, modified: details.mtime.toISOString() };
+        const type = imageExtensions.has(path.extname(filePath).toLowerCase()) ? "image" : "fits";
+        return { name: path.basename(filePath), path: path.relative(libraryRoot, filePath).replaceAll(path.sep, "/"), type, size: details.size, modified: details.mtime.toISOString(), ...(type === "fits" ? describeFilter(path.basename(filePath)) : {}) };
       }));
     return NextResponse.json({ files: files.sort((a, b) => b.modified.localeCompare(a.modified)) });
   } catch {

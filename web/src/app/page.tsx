@@ -12,6 +12,8 @@ type LibraryFile = {
   type: "image" | "fits";
   size: number;
   modified: string;
+  filter?: string;
+  colorHint?: string;
 };
 
 type Observation = {
@@ -330,6 +332,8 @@ export default function Home() {
   const [observations, setObservations] = useState<Observation[]>([]);
   const [selectedObservations, setSelectedObservations] = useState<string[]>([]);
   const [selectedFits, setSelectedFits] = useState<string[]>([]);
+  const [colorChannels, setColorChannels] = useState({ red: "", green: "", blue: "" });
+  const [colorLoading, setColorLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [renderStyle, setRenderStyle] = useState<"clean" | "graph">("clean");
@@ -444,6 +448,29 @@ export default function Home() {
     }
   };
 
+  const createColorComposite = async () => {
+    if (!colorChannels.red || !colorChannels.green || !colorChannels.blue) {
+      setStatus("Choose a FITS file for every RGB channel");
+      return;
+    }
+    setColorLoading(true);
+    setStatus("Combining filter bands into an RGB color image...");
+    try {
+      const response = await fetch("/api/color-composite", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(colorChannels) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not create the color composite");
+      const libraryResponse = await fetch("/api/library");
+      const libraryData = await libraryResponse.json();
+      setFiles(libraryData.files ?? []);
+      setActiveView("images");
+      setStatus(`Color composite ready: ${data.path.split("/").pop()}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not create the color composite");
+    } finally {
+      setColorLoading(false);
+    }
+  };
+
   const imageFiles = files.filter((file) => file.type === "image");
   const fitsFiles = files.filter((file) => file.type === "fits");
 
@@ -515,6 +542,7 @@ export default function Home() {
 
           <section className="library-panel">
             <div className="section-heading"><div><div className="panel-kicker">{activeView === "fits" ? "FITS ARCHIVE" : activeView === "images" ? "IMAGE LIBRARY" : "LOCAL LIBRARY"}</div><h3>{activeView === "fits" ? "Raw observations" : "Recent captures"}</h3></div><span className="file-count">{activeView === "fits" ? fitsFiles.length : activeView === "images" ? imageFiles.length : files.length} FILES</span></div>
+            {activeView === "fits" && <section className="color-composer"><div><div className="panel-kicker">COLOR COMPOSER</div><h4>Build a false-color image</h4><p>Each FITS file is one filter band. Assign bands to RGB; suggestions are based on filter wavelength.</p></div><div className="channel-picker">{(["red", "green", "blue"] as const).map((channel) => <label key={channel}><span>{channel} channel</span><select value={colorChannels[channel]} onChange={(event) => setColorChannels((current) => ({ ...current, [channel]: event.target.value }))}><option value="">Choose a FITS band</option>{fitsFiles.map((file) => <option key={file.path} value={file.path}>{file.filter ?? "Unknown"} - {file.name} ({file.colorHint ?? "manual"})</option>)}</select></label>)}</div><button className="compose-button" disabled={colorLoading || !fitsFiles.length} onClick={createColorComposite}>{colorLoading ? "Composing..." : "Create color PNG"}</button></section>}
             {activeView === "observatory" && <><HubbleModelScene target={query} mode={searchMode} />{processProgress && processing && <div className="progress-panel observatory-progress"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>DOWNLOADS</span><strong>{processProgress.downloadPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} FITS product(s) found` : `Estimating products for ${selectedObservations.length} observation(s)...`}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}</>}
             {processProgress && processing && activeView === "images" && <div className="progress-panel progress-panel-shared"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>{processProgress.stage === "processing" && processProgress.downloadPercent === 100 ? "LOCAL FITS" : "DOWNLOADS"}</span><strong>{processProgress.stage === "processing" && processProgress.downloadPercent === 100 ? "READY" : `${processProgress.downloadPercent}%`}</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} file(s) found` : "Estimating products..."}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}
             {activeView === "observatory" && observations.length > 0 && <><div className="result-toolbar"><span>{selectedObservations.length} selected</span><button onClick={() => setSelectedObservations(selectedObservations.length === observations.length ? [] : observations.map((observation) => observation.obs_id))}>{selectedObservations.length === observations.length ? "Clear selection" : "Select all"}</button><button className="process-button" disabled={!selectedObservations.length || processing} onClick={processSelected}>{processing ? "Processing..." : "Download & process"} <span>↗</span></button></div><div className="render-options"><span>OUTPUT STYLE</span><button className={renderStyle === "clean" ? "selected" : ""} onClick={() => setRenderStyle("clean")} disabled={processing}>Clean image <small>No graph</small></button><button className={renderStyle === "graph" ? "selected" : ""} onClick={() => setRenderStyle("graph")} disabled={processing}>Scientific graph <small>Axes + metadata</small></button></div>{processProgress && processing && <div className="progress-panel"><div className="progress-message"><span className="progress-spinner" />{processProgress.message}</div><div className="progress-line"><div><span>DOWNLOADS</span><strong>{processProgress.downloadPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.downloadPercent}%` }} /></div><small>{processProgress.filesFound ? `${processProgress.filesFound} FITS product(s) found` : "Finding science products..."}</small></div><div className="progress-line"><div><span>IMAGE PROCESSING</span><strong>{processProgress.processingPercent}%</strong></div><div className="progress-track"><i style={{ width: `${processProgress.processingPercent}%` }} /></div><small>{processProgress.totalFiles ? `${processProgress.filesProcessed} of ${processProgress.totalFiles} PNG previews created` : "Waiting for downloads..."}</small></div></div>}<div className="observation-list">{observations.map((observation) => <label className={`observation-row ${selectedObservations.includes(observation.obs_id) ? "checked" : ""}`} key={observation.obs_id}><input type="checkbox" checked={selectedObservations.includes(observation.obs_id)} onChange={() => toggleObservation(observation.obs_id)} /><strong>{observation.obs_id}</strong><span>{observation.target_name} · {observation.instrument_name}</span><small>{observation.filters || "Filter unavailable"} · {observation.t_exptime || "Exposure unavailable"} s</small></label>)}</div></>}
