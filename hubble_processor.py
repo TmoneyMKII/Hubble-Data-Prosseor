@@ -11,6 +11,7 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.visualization import astropy_mpl_style
+from astropy.wcs import WCS
 from astroquery.mast import Observations
 import matplotlib.pyplot as plt
 
@@ -190,8 +191,8 @@ class HubbleDataProcessor:
             print(f"Error processing image: {exc}")
 
     @staticmethod
-    def _load_image_data(fits_file: str) -> tuple[np.ndarray, fits.Header]:
-        """Load the first image plane and header from a FITS product."""
+    def _load_image_data(fits_file: str) -> tuple[np.ndarray, fits.Header, WCS | None]:
+        """Load the first image plane, metadata, and celestial WCS from a FITS product."""
         try:
             with fits.open(fits_file) as hdul:
                 primary_header = hdul[0].header.copy()
@@ -202,7 +203,8 @@ class HubbleDataProcessor:
                             image_data = image_data[image_data.shape[0] // 2]
                         header = primary_header.copy()
                         header.update(hdu.header)
-                        return image_data, header
+                        wcs = WCS(header, fobj=hdul).celestial
+                        return image_data, header, wcs if wcs.has_celestial else None
         except (OSError, TypeError) as exc:
             raise ValueError(f"Cannot read FITS image '{fits_file}': {exc}") from exc
 
@@ -223,6 +225,48 @@ class HubbleDataProcessor:
         normalized = np.clip((values - low) / (high - low), 0, 1)
         return np.arcsinh(10 * normalized) / np.arcsinh(10)
 
+    @staticmethod
+    def _align_to_reference(
+        image_data: np.ndarray,
+        source_wcs: WCS | None,
+        reference_wcs: WCS | None,
+        reference_shape: tuple[int, int],
+    ) -> np.ndarray:
+        """Resample an image onto a reference pixel grid using celestial coordinates."""
+        if source_wcs is None or reference_wcs is None:
+            if image_data.shape != reference_shape:
+                raise ValueError("FITS images need celestial WCS metadata or matching pixel dimensions")
+            return image_data
+
+        aligned = np.zeros(reference_shape, dtype=float)
+        height, width = reference_shape
+        source_height, source_width = image_data.shape
+        for start_row in range(0, height, 256):
+            end_row = min(start_row + 256, height)
+            y_coords, x_coords = np.mgrid[start_row:end_row, 0:width]
+            world = reference_wcs.all_pix2world(x_coords, y_coords, 0)
+            source_x, source_y = source_wcs.all_world2pix(*world, 0)
+
+            left = np.floor(source_x).astype(int)
+            top = np.floor(source_y).astype(int)
+            right = left + 1
+            bottom = top + 1
+            valid = (left >= 0) & (top >= 0) & (right < source_width) & (bottom < source_height)
+            if not np.any(valid):
+                continue
+
+            x_fraction = source_x - left
+            y_fraction = source_y - top
+            sampled = np.zeros(source_x.shape, dtype=float)
+            sampled[valid] = (
+                image_data[top[valid], left[valid]] * (1 - x_fraction[valid]) * (1 - y_fraction[valid])
+                + image_data[top[valid], right[valid]] * x_fraction[valid] * (1 - y_fraction[valid])
+                + image_data[bottom[valid], left[valid]] * (1 - x_fraction[valid]) * y_fraction[valid]
+                + image_data[bottom[valid], right[valid]] * x_fraction[valid] * y_fraction[valid]
+            )
+            aligned[start_row:end_row] = sampled
+        return aligned
+
     def create_color_composite(
         self,
         red_fits: str,
@@ -236,20 +280,20 @@ class HubbleDataProcessor:
             "green": self._load_image_data(green_fits),
             "blue": self._load_image_data(blue_fits),
         }
-        shapes = {image_data.shape for image_data, _ in channels.values()}
-        if len(shapes) != 1:
-            raise ValueError("RGB FITS images must have identical pixel dimensions")
-
-        rgb_image = np.dstack(
-            [self._normalize_color_channel(channels[color][0]) for color in ("red", "green", "blue")]
-        )
+        reference_data, _, reference_wcs = channels["red"]
+        rgb_image = np.dstack([
+            self._normalize_color_channel(
+                self._align_to_reference(image_data, channel_wcs, reference_wcs, reference_data.shape)
+            )
+            for image_data, _, channel_wcs in (channels[color] for color in ("red", "green", "blue"))
+        ])
         if output_file is None:
             output_file = Path(red_fits).with_name(f"{Path(red_fits).stem}_rgb.png")
         output_path = Path(output_file)
 
         plt.imsave(output_path, rgb_image, origin="lower")
         print(f"Saved RGB color composite as: {output_path}")
-        for color, (_, header) in channels.items():
+        for color, (_, header, _) in channels.items():
             filter_name = header.get("FILTER", header.get("FILTER2", "Unknown"))
             print(f"  {color.title()}: {filter_name}")
         return output_path
