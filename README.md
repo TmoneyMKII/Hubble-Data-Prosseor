@@ -1,6 +1,6 @@
-# Hubble Space Telescope Data Processor
+# Space-Telescope-Data-Processor
 
-A Python tool to search, download, and process Hubble Space Telescope images from user-selected positions and datasets.
+A Python tool to search, download, and process space telescope data (Hubble Space Telescope and other observatories) from user-selected positions and datasets.
 
 ## Features
 
@@ -25,7 +25,7 @@ pip install -r requirements.txt
 Run the main program:
 
 ```bash
-python hubble_processor.py
+python space_telescope_processor.py
 ```
 
 The program will guide you through:

@@ -1,4 +1,4 @@
-"""Hubble Space Telescope data processor."""
+"""Space telescope data processor - supporting Hubble and other observatories."""
 
 from __future__ import annotations
 
@@ -19,15 +19,15 @@ DEFAULT_SEARCH_RADIUS = 0.02
 DEFAULT_OUTPUT_DIR = "hubble_images"
 
 
-class HubbleDataProcessor:
-    """Process Hubble observations and download associated FITS products."""
+class SpaceTelescopeDataProcessor:
+    """Process space telescope observations and download associated FITS products."""
 
     def __init__(self, output_dir: str | os.PathLike[str] = DEFAULT_OUTPUT_DIR):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def search_by_coordinates(self, ra: float, dec: float, radius: float = DEFAULT_SEARCH_RADIUS):
-        """Search for HST observations around a position in degrees."""
+        """Search for space telescope observations around a position in degrees."""
         print(f"\nSearching for Hubble observations at RA={ra}, Dec={dec}")
         print(f"Search radius: {radius} degrees")
 
@@ -47,7 +47,7 @@ class HubbleDataProcessor:
         return None
 
     def search_by_object(self, object_name: str, radius: float = DEFAULT_SEARCH_RADIUS):
-        """Search for HST observations by astronomical object name."""
+        """Search for space telescope observations by astronomical object name."""
         object_name = object_name.strip()
         if not object_name:
             raise ValueError("Object name cannot be empty")
@@ -327,10 +327,10 @@ def parse_download_indices(raw_value: str):
 def main():
     """Run the interactive Hubble data processing CLI."""
     print("=" * 80)
-    print("HUBBLE SPACE TELESCOPE DATA PROCESSOR")
+    print("SPACE-TELESCOPE-DATA-PROCESSOR")
     print("=" * 80)
 
-    processor = HubbleDataProcessor()
+    processor = SpaceTelescopeDataProcessor()
 
     while True:
         print("\nOptions:")

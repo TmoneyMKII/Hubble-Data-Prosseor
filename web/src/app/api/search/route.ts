@@ -7,9 +7,9 @@ const runPython = promisify(execFile);
 const projectRoot = path.resolve(process.cwd(), "..");
 const searchScript = `
 import contextlib, io, json, sys
-from hubble_processor import HubbleDataProcessor
+from space_telescope_processor import SpaceTelescopeDataProcessor
 mode, query, radius = sys.argv[1], sys.argv[2], float(sys.argv[3])
-processor = HubbleDataProcessor()
+processor = SpaceTelescopeDataProcessor()
 with contextlib.redirect_stdout(io.StringIO()):
     table = processor.search_by_object(query, radius) if mode == "object" else processor.search_by_coordinates(float(sys.argv[4]), float(sys.argv[5]), radius)
 rows = []

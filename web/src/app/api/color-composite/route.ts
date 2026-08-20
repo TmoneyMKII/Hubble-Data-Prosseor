@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     if (!red || !green || !blue) return NextResponse.json({ error: "Choose a valid FITS file for each RGB channel" }, { status: 400 });
 
     const outputPath = path.join(path.dirname(red), `${path.basename(red, ".fits")}_rgb.png`);
-    const script = "import sys; from hubble_processor import HubbleDataProcessor; print(HubbleDataProcessor().create_color_composite(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]))";
+    const script = "import sys; from space_telescope_processor import SpaceTelescopeDataProcessor; print(SpaceTelescopeDataProcessor().create_color_composite(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]))";
     const child = spawn("python", ["-c", script, red, green, blue, outputPath], { cwd: projectRoot });
     let errorOutput = "";
     child.stderr.on("data", (chunk: Buffer) => { errorOutput += chunk.toString(); });

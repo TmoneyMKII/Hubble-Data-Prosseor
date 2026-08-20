@@ -8,7 +8,7 @@ const processScript = `
 import contextlib, io, json, sys
 import matplotlib
 matplotlib.use("Agg")
-from hubble_processor import HubbleDataProcessor
+from space_telescope_processor import SpaceTelescopeDataProcessor
 
 def progress(stage, message, **values):
   print(json.dumps({"stage": stage, "message": message, **values}), flush=True)
@@ -16,7 +16,7 @@ def progress(stage, message, **values):
 mode, query, radius = sys.argv[1], sys.argv[2], float(sys.argv[3])
 selected_ids = set(json.loads(sys.argv[6]))
 render_style = sys.argv[7] if sys.argv[7] in ("clean", "graph") else "graph"
-processor = HubbleDataProcessor()
+processor = SpaceTelescopeDataProcessor()
 progress("search", f"Re-checking selected observations for {render_style} output with MAST...")
 with contextlib.redirect_stdout(io.StringIO()):
     table = processor.search_by_object(query, radius) if mode == "object" else processor.search_by_coordinates(float(sys.argv[4]), float(sys.argv[5]), radius)

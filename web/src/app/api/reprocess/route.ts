@@ -9,14 +9,14 @@ const reprocessScript = `
 import contextlib, io, json, sys
 import matplotlib
 matplotlib.use("Agg")
-from hubble_processor import HubbleDataProcessor
+from space_telescope_processor import SpaceTelescopeDataProcessor
 
 def progress(message, **values):
     print(json.dumps({"stage": "processing", "message": message, **values}), flush=True)
 
 paths = json.loads(sys.argv[1])
 render_style = sys.argv[2] if sys.argv[2] in ("clean", "graph") else "graph"
-processor = HubbleDataProcessor()
+processor = SpaceTelescopeDataProcessor()
 processed = []
 for index, file_path in enumerate(paths, 1):
     progress(f"Rendering local FITS {index} of {len(paths)}: {file_path.rsplit("/", 1)[-1]}", processingPercent=round((index - 1) / len(paths) * 100), filesFound=len(paths), filesProcessed=index - 1, totalFiles=len(paths), downloadPercent=100)
